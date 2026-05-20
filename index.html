@@ -1,0 +1,605 @@
+    <script>
+        // --- SECURE CLOUD STORAGE LOGIC ---
+        const BUCKET_KEY = "neon_hub_v3_global_save";
+        const API_URL = `https://allorigins.win{encodeURIComponent('https://kvdb.io' + BUCKET_KEY + '_')}`;
+        const DIRECT_WRITE_URL = `https://kvdb.io${BUCKET_KEY}_`;
+
+        let playerData = { 
+            name: "Guest", 
+            password: "", 
+            coins: 0, 
+            color: "#00f0ff", 
+            theme: "linear-gradient(135deg, #0f0c20 0%, #15102a 50%, #06040a 100%)",
+            friends: [],
+            requests: []
+        };
+
+        async function handleAuth() {
+            let inputName = document.getElementById('username-input').value.trim().toLowerCase();
+            let inputPass = document.getElementById('password-input').value.trim();
+            let statusDiv = document.getElementById('auth-status');
+            
+            if(!inputName || !inputPass) return alert("Bitte Name und Passwort eingeben!");
+            statusDiv.innerText = "Verbinde mit Server...";
+
+            try {
+                let res = await fetch(API_URL + inputName);
+                if (res.ok) {
+                    let existingData = await res.json();
+                    if (existingData.password === inputPass) {
+                        playerData = fillMissingData(existingData);
+                        alert("Erfolgreich eingeloggt!");
+                    } else {
+                        statusDiv.innerText = "Falsches Passwort!";
+                        return;
+                    }
+                } else {
+                    playerData = { 
+                        name: inputName, 
+                        password: inputPass, 
+                        coins: 0, 
+                        color: "#00f0ff", 
+                        theme: "linear-gradient(135deg, #0f0c20 0%, #15102a 50%, #06040a 100%)",
+                        friends: [],
+                        requests: []
+                    };
+                    await saveToCloud(inputName, playerData);
+                    alert("Neuer Cloud-Account registriert!");
+                }
+                document.getElementById('auth-screen').style.display = 'none';
+                saveAndSync();
+            } catch (e) {
+                statusDiv.innerText = "Server-Fehler. Lokaler Fallback aktiv.";
+                document.getElementById('auth-screen').style.display = 'none';
+            }
+        }
+
+        function fillMissingData(data) {
+            if (!data.theme) data.theme = "linear-gradient(135deg, #0f0c20 0%, #15102a 50%, #06040a 100%)";
+            if (!data.friends) data.friends = [];
+            if (!data.requests) data.requests = [];
+            return data;
+        }
+
+        async function saveToCloud(name, data) {
+            await fetch(DIRECT_WRITE_URL + name, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' });
+        }
+
+        async function saveAndSync() {
+            updateUI();
+            localStorage.setItem('neon_hub_account', JSON.stringify(playerData));
+            if (playerData.name !== "Guest") {
+                saveToCloud(playerData.name, playerData).catch(e => console.log("Sync verzögert"));
+            }
+        }
+
+        function updateUI() {
+            let nameDisplay = playerData.name.toUpperCase();
+            // Verifiziert-Haken für MrKeksTV hinzufügen
+            if(playerData.name.toLowerCase() === "mrkekstv") {
+                nameDisplay += " ☑️";
+            }
+            document.getElementById('display-name').innerText = nameDisplay;
+            document.getElementById('display-name').style.color = playerData.color;
+            document.getElementById('display-coins').innerText = playerData.coins;
+            document.body.style.background = playerData.theme;
+            renderFriendsLists();
+        }
+
+        function logout() {
+            localStorage.removeItem('neon_hub_account');
+            location.reload();
+        }
+
+        window.onload = function() {
+            let savedData = localStorage.getItem('neon_hub_account');
+            if(savedData) {
+                playerData = fillMissingData(JSON.parse(savedData));
+                document.getElementById('auth-screen').style.display = 'none';
+                updateUI();
+                
+                fetch(API_URL + playerData.name).then(res => res.json()).then(cloudData => {
+                    playerData = fillMissingData(cloudData);
+                    updateUI();
+                }).catch(e => console.log("Automatischer Sync aktiv"));
+            }
+        };
+
+        // --- WINDOW NAVIGATION ---
+        function openApp(id) {
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById(id).classList.add('active');
+            if(id === 'app-arena') initMultiplayer();
+            if(id === 'app-friends') refreshFriendsFromCloud();
+        }
+        function closeAllApps() {
+            document.getElementById('overlay').classList.remove('active');
+            document.querySelectorAll('.app-window').forEach(w => w.classList.remove('active'));
+            clearInterval(gameInterval);
+        }
+
+        // --- GAME 1: CYBER CLICKER ---
+        function clickCoin() {
+            let c = document.getElementById('click-coin');
+            c.style.transform = 'scale(0.8)';
+            setTimeout(() => c.style.transform='scale(1)', 50);
+            playerData.coins += 1;
+            saveAndSync();
+        }
+
+        // --- GAME 2: LOVE TESTER ---
+        function testLove() {
+            if (playerData.coins < 20) {
+                alert("Du brauchst mindestens 20 🪙!");
+                return;
+            }
+
+            let n1 = document.getElementById('love-name1').value.trim().toLowerCase();
+            let n2 = document.getElementById('love-name2').value.trim().toLowerCase();
+            if(!n1 || !n2) return alert("Namen fehlen!");
+
+            playerData.coins -= 20;
+
+            let combinedNames = [n1, n2].sort().join("");
+            let sum = 0;
+            for (let i = 0; i < combinedNames.length; i++) {
+                sum += combinedNames.charCodeAt(i);
+            }
+            let r = sum % 101; 
+            
+            document.getElementById('love-result').innerText = r + "%";
+            saveAndSync();
+        }
+
+        // --- GAME 3: SCHERE STEIN PAPIER (UPDATET: MINUS COINS) ---
+        function playRPS(playerChoice) {
+            let choices = ['🪨', '📄', '✂️'];
+            let botChoice = choices[Math.floor(Math.random()*3)];
+            document.getElementById('rps-bot').innerText = botChoice;
+            let resText = "";
+            
+            if(playerChoice === botChoice) { 
+                resText = "Unentschieden!"; 
+            }
+            else if((playerChoice==='🪨'&&botChoice==='✂️') || (playerChoice==='📄'&&botChoice==='🪨') || (playerChoice==='✂️'&&botChoice==='📄')) {
+                resText = "Du gewinnst! +15 🪙"; 
+                playerData.coins += 15;
+            } else { 
+                resText = "Bot gewinnt! -5 🪙"; 
+                playerData.coins = Math.max(0, playerData.coins - 5); // Zieht 5 ab, geht nicht unter 0
+            }
+            document.getElementById('rps-result').innerText = resText;
+            saveAndSync();
+        }
+
+        // --- SHOP & THEMES SYSTEM ---
+        function buyItem(type, val, price) {
+            if(playerData.coins >= price) {
+                playerData.coins -= price;
+                if(type === 'color') playerData.color = val;
+                if(type === 'theme') playerData.theme = val;
+                saveAndSync();
+                alert("Erfolgreich freigeschaltet!");
+            } else { alert("Zu wenig Coins!"); }
+        }
+
+        // --- CLOUD FRIENDS SYSTEM (FIXED) ---
+        async function refreshFriendsFromCloud() {
+            try {
+                let res = await fetch(API_URL + playerData.name);
+                if(res.ok) {
+                    let cloudData = await res.json();
+                    playerData = fillMissingData(cloudData);
+                    renderFriendsLists();
+                }
+            } catch(e) { console.log("Fehler beim Abruf der Freundesliste"); }
+        }
+
+        async function sendFriendRequest() {
+            let targetName = document.getElementById('friend-name-input').value.trim().toLowerCase();
+            if(!targetName || targetName === playerData.name) return alert("Ungültiger Name!");
+
+            try {
+                // Sichern über Proxy-URL gegen Senden-Fehler
+                let res = await fetch(API_URL + targetName);
+                if(!res.ok) return alert("Spieler existiert nicht in der Cloud!");
+                
+                let targetData = fillMissingData(await res.json());
+                if(!targetData.requests.includes(playerData.name) && !targetData.friends.includes(playerData.name)) {
+                    targetData.requests.push(playerData.name);
+                    await saveToCloud(targetName, targetData);
+                    alert("Freundschaftsanfrage gesendet!");
+                    document.getElementById('friend-name-input').value = "";
+                } else {
+                    alert("Bereits angefragt oder ihr seid schon Freunde.");
+                }
+            } catch(e) { alert("Fehler beim Senden der Anfrage."); }
+        }
+
+        async function acceptFriend(senderName) {
+            playerData.requests = playerData.requests.filter(n => n !== senderName);
+            if(!playerData.friends.includes(senderName)) playerData.friends.push(senderName);
+            
+            try {
+                let res = await fetch(API_URL + senderName);
+                if(res.ok) {
+                    let senderData = fillMissingData(await res.json());
+                    if(!senderData.friends.includes(playerData.name)) senderData.friends.push(playerData.name);
+                    await saveToCloud(senderName, senderData);
+                }
+                saveAndSync();
+            } catch(e) { alert("Fehler beim Akzeptieren."); }
+        }
+
+        // Rendert Namen UND Live-Coins der Freunde im Fenster
+        async function renderFriendsLists() {
+            let reqList = document.getElementById('friend-requests-list');
+            let fList = document.getElementById('my-friends-list');
+            
+            if(playerData.requests.length === 0) { reqList.innerHTML = "Keine neuen Anfragen"; } 
+            else {
+                reqList.innerHTML = "";
+                playerData.requests.forEach(sender => {
+                    reqList.innerHTML += `<div class="friend-item"><span>${sender.toUpperCase()}</span><button class="btn" style="padding:2px 10px; margin:0;" onclick="acceptFriend('${sender}')">Annehmen</button></div>`;
+                });
+            }
+
+            if(playerData.friends.length === 0) { fList.innerHTML = "Noch keine Freunde"; } 
+            else {
+                fList.innerHTML = "Lade Freundesdaten...";
+                let htmlBuffer = "";
+                
+                for(let friend of playerData.friends) {
+                    let fCoins = "?";
+                    try {
+                        let res = await fetch(API_URL + friend);
+                        if(res.ok) {
+                            let fData = await res.json();
+                            fCoins = fData.coins || 0;
+                        }
+                    } catch(e) {}
+                    
+                    let displayFriendName = friend.toUpperCase();
+                    if(friend.toLowerCase() === "mrkekstv") displayFriendName += " ☑️";
+
+                    htmlBuffer += `<div class="friend-item"><span style="color:var(--neon-cyan)">● ${displayFriendName}</span><span style="color:#ffe600; font-size:14px;">🪙 ${fCoins}</span></div>`;
+                }
+                fList.innerHTML = htmlBuffer;
+            }
+        }
+
+        // --- MULTIPLAYER ARENA ENGINE ---
+        let peer, conn, gameInterval;
+        let canvas = document.getElementById('mpCanvas'), ctx = canvas.getContext('2d');
+        let localP = { x: 50, y: 150 }, remoteP = { x: 400, y: 150 };
+
+        function initMultiplayer() {
+            if(peer) return;
+            peer = new Peer('hub-room-' + Math.floor(1000 + Math.random()*9000));
+            peer.on('open', id => document.getElementById('my-code').innerText = id);
+            peer.on('connection', c => { conn = c; startLoop(); });
+        }
+        function connectToFriend() {
+            let code = document.getElementById('join-code').value.trim();
+            conn = peer.connect(code);
+            conn.on('open', () => startLoop());
+        }
+        function startLoop() {
+            document.getElementById('mp-menu').style.display = 'none';
+            window.addEventListener('keydown', e => {
+                if(e.key==='w'||e.key==='ArrowUp') localP.y-=7; if(e.key==='s'||e.key==='ArrowDown') localP.y+=7;
+                if(e.key==='a'||e.key==='ArrowLeft') localP.x-=7; if(e.key==='d'||e.key==='ArrowRight') localP.x+=7;
+                if(conn) conn.send({x: localP.x, y: localP.y});
+            });
+            if(conn) conn.on('data', d => { remoteP.x = d.x; remoteP.y = d.y; });
+            gameInterval = setInterval(() => {
+                ctx.clearRect(0,0,500,300);
+                ctx.fillStyle = playerData.color; ctx.fillRect(localP.x, localP.y, 20, 20);
+                ctx.fillStyle = '#ff007f'; ctx.fillRect(remoteP.x, remoteP.y, 20, 20);
+            }, 1000/30);
+        }
+    </script>
+</body>
+</html>
+    <script>
+        // --- SECURE CLOUD STORAGE LOGIC ---
+        const BUCKET_KEY = "neon_hub_v3_global_save";
+        const API_URL = `https://allorigins.win{encodeURIComponent('https://kvdb.io' + BUCKET_KEY + '_')}`;
+        const DIRECT_WRITE_URL = `https://kvdb.io${BUCKET_KEY}_`;
+
+        let playerData = { 
+            name: "Guest", 
+            password: "", 
+            coins: 0, 
+            color: "#00f0ff", 
+            theme: "linear-gradient(135deg, #0f0c20 0%, #15102a 50%, #06040a 100%)",
+            friends: [],
+            requests: []
+        };
+
+        async function handleAuth() {
+            let inputName = document.getElementById('username-input').value.trim().toLowerCase();
+            let inputPass = document.getElementById('password-input').value.trim();
+            let statusDiv = document.getElementById('auth-status');
+            
+            if(!inputName || !inputPass) return alert("Bitte Name und Passwort eingeben!");
+            statusDiv.innerText = "Verbinde mit Server...";
+
+            try {
+                let res = await fetch(API_URL + inputName);
+                if (res.ok) {
+                    let existingData = await res.json();
+                    if (existingData.password === inputPass) {
+                        playerData = fillMissingData(existingData);
+                        alert("Erfolgreich eingeloggt!");
+                    } else {
+                        statusDiv.innerText = "Falsches Passwort!";
+                        return;
+                    }
+                } else {
+                    playerData = { 
+                        name: inputName, 
+                        password: inputPass, 
+                        coins: 0, 
+                        color: "#00f0ff", 
+                        theme: "linear-gradient(135deg, #0f0c20 0%, #15102a 50%, #06040a 100%)",
+                        friends: [],
+                        requests: []
+                    };
+                    await saveToCloud(inputName, playerData);
+                    alert("Neuer Cloud-Account registriert!");
+                }
+                document.getElementById('auth-screen').style.display = 'none';
+                saveAndSync();
+            } catch (e) {
+                statusDiv.innerText = "Server-Fehler. Lokaler Fallback aktiv.";
+                document.getElementById('auth-screen').style.display = 'none';
+            }
+        }
+
+        function fillMissingData(data) {
+            if (!data.theme) data.theme = "linear-gradient(135deg, #0f0c20 0%, #15102a 50%, #06040a 100%)";
+            if (!data.friends) data.friends = [];
+            if (!data.requests) data.requests = [];
+            return data;
+        }
+
+        async function saveToCloud(name, data) {
+            await fetch(DIRECT_WRITE_URL + name, { method: 'POST', body: JSON.stringify(data), mode: 'no-cors' });
+        }
+
+        async function saveAndSync() {
+            updateUI();
+            localStorage.setItem('neon_hub_account', JSON.stringify(playerData));
+            if (playerData.name !== "Guest") {
+                saveToCloud(playerData.name, playerData).catch(e => console.log("Sync verzögert"));
+            }
+        }
+
+        function updateUI() {
+            let nameDisplay = playerData.name.toUpperCase();
+            // Verifiziert-Haken für MrKeksTV hinzufügen
+            if(playerData.name.toLowerCase() === "mrkekstv") {
+                nameDisplay += " ☑️";
+            }
+            document.getElementById('display-name').innerText = nameDisplay;
+            document.getElementById('display-name').style.color = playerData.color;
+            document.getElementById('display-coins').innerText = playerData.coins;
+            document.body.style.background = playerData.theme;
+            renderFriendsLists();
+        }
+
+        function logout() {
+            localStorage.removeItem('neon_hub_account');
+            location.reload();
+        }
+
+        window.onload = function() {
+            let savedData = localStorage.getItem('neon_hub_account');
+            if(savedData) {
+                playerData = fillMissingData(JSON.parse(savedData));
+                document.getElementById('auth-screen').style.display = 'none';
+                updateUI();
+                
+                fetch(API_URL + playerData.name).then(res => res.json()).then(cloudData => {
+                    playerData = fillMissingData(cloudData);
+                    updateUI();
+                }).catch(e => console.log("Automatischer Sync aktiv"));
+            }
+        };
+
+        // --- WINDOW NAVIGATION ---
+        function openApp(id) {
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById(id).classList.add('active');
+            if(id === 'app-arena') initMultiplayer();
+            if(id === 'app-friends') refreshFriendsFromCloud();
+        }
+        function closeAllApps() {
+            document.getElementById('overlay').classList.remove('active');
+            document.querySelectorAll('.app-window').forEach(w => w.classList.remove('active'));
+            clearInterval(gameInterval);
+        }
+
+        // --- GAME 1: CYBER CLICKER ---
+        function clickCoin() {
+            let c = document.getElementById('click-coin');
+            c.style.transform = 'scale(0.8)';
+            setTimeout(() => c.style.transform='scale(1)', 50);
+            playerData.coins += 1;
+            saveAndSync();
+        }
+
+        // --- GAME 2: LOVE TESTER ---
+        function testLove() {
+            if (playerData.coins < 20) {
+                alert("Du brauchst mindestens 20 🪙!");
+                return;
+            }
+
+            let n1 = document.getElementById('love-name1').value.trim().toLowerCase();
+            let n2 = document.getElementById('love-name2').value.trim().toLowerCase();
+            if(!n1 || !n2) return alert("Namen fehlen!");
+
+            playerData.coins -= 20;
+
+            let combinedNames = [n1, n2].sort().join("");
+            let sum = 0;
+            for (let i = 0; i < combinedNames.length; i++) {
+                sum += combinedNames.charCodeAt(i);
+            }
+            let r = sum % 101; 
+            
+            document.getElementById('love-result').innerText = r + "%";
+            saveAndSync();
+        }
+
+        // --- GAME 3: SCHERE STEIN PAPIER (MINUS COINS) ---
+        function playRPS(playerChoice) {
+            let choices = ['🪨', '📄', '✂️'];
+            let botChoice = choices[Math.floor(Math.random()*3)];
+            document.getElementById('rps-bot').innerText = botChoice;
+            let resText = "";
+            
+            if(playerChoice === botChoice) { 
+                resText = "Unentschieden!"; 
+            }
+            else if((playerChoice==='🪨'&&botChoice==='✂️') || (playerChoice==='📄'&&botChoice==='🪨') || (playerChoice==='✂️'&&botChoice==='📄')) {
+                resText = "Du gewinnst! +15 🪙"; 
+                playerData.coins += 15;
+            } else { 
+                resText = "Bot gewinnt! -5 🪙"; 
+                playerData.coins = Math.max(0, playerData.coins - 5);
+            }
+            document.getElementById('rps-result').innerText = resText;
+            saveAndSync();
+        }
+
+        // --- SHOP & THEMES SYSTEM ---
+        function buyItem(type, val, price) {
+            if(playerData.coins >= price) {
+                playerData.coins -= price;
+                if(type === 'color') playerData.color = val;
+                if(type === 'theme') playerData.theme = val;
+                saveAndSync();
+                alert("Erfolgreich freigeschaltet!");
+            } else { alert("Zu wenig Coins!"); }
+        }
+
+        // --- CLOUD FRIENDS SYSTEM ---
+        async function refreshFriendsFromCloud() {
+            try {
+                let res = await fetch(API_URL + playerData.name);
+                if(res.ok) {
+                    let cloudData = await res.json();
+                    playerData = fillMissingData(cloudData);
+                    renderFriendsLists();
+                }
+            } catch(e) { console.log("Fehler beim Abruf der Freundesliste"); }
+        }
+
+        async function sendFriendRequest() {
+            let targetName = document.getElementById('friend-name-input').value.trim().toLowerCase();
+            if(!targetName || targetName === playerData.name) return alert("Ungültiger Name!");
+
+            try {
+                let res = await fetch(API_URL + targetName);
+                if(!res.ok) return alert("Spieler existiert nicht in der Cloud!");
+                
+                let targetData = fillMissingData(await res.json());
+                if(!targetData.requests.includes(playerData.name) && !targetData.friends.includes(playerData.name)) {
+                    targetData.requests.push(playerData.name);
+                    await saveToCloud(targetName, targetData);
+                    alert("Freundschaftsanfrage gesendet!");
+                    document.getElementById('friend-name-input').value = "";
+                } else {
+                    alert("Bereits angefragt oder ihr seid schon Freunde.");
+                }
+            } catch(e) { alert("Fehler beim Senden der Anfrage."); }
+        }
+
+        async function acceptFriend(senderName) {
+            playerData.requests = playerData.requests.filter(n => n !== senderName);
+            if(!playerData.friends.includes(senderName)) playerData.friends.push(senderName);
+            
+            try {
+                let res = await fetch(API_URL + senderName);
+                if(res.ok) {
+                    let senderData = fillMissingData(await res.json());
+                    if(!senderData.friends.includes(playerData.name)) senderData.friends.push(playerData.name);
+                    await saveToCloud(senderName, senderData);
+                }
+                saveAndSync();
+            } catch(e) { alert("Fehler beim Akzeptieren."); }
+        }
+
+        async function renderFriendsLists() {
+            let reqList = document.getElementById('friend-requests-list');
+            let fList = document.getElementById('my-friends-list');
+            
+            if(playerData.requests.length === 0) { reqList.innerHTML = "Keine neuen Anfragen"; } 
+            else {
+                reqList.innerHTML = "";
+                playerData.requests.forEach(sender => {
+                    reqList.innerHTML += `<div class="friend-item"><span>${sender.toUpperCase()}</span><button class="btn" style="padding:2px 10px; margin:0;" onclick="acceptFriend('${sender}')">Annehmen</button></div>`;
+                });
+            }
+
+            if(playerData.friends.length === 0) { fList.innerHTML = "Noch keine Freunde"; } 
+            else {
+                fList.innerHTML = "Lade Freundesdaten...";
+                let htmlBuffer = "";
+                
+                for(let friend of playerData.friends) {
+                    let fCoins = "?";
+                    try {
+                        let res = await fetch(API_URL + friend);
+                        if(res.ok) {
+                            let fData = await res.json();
+                            fCoins = fData.coins || 0;
+                        }
+                    } catch(e) {}
+                    
+                    let displayFriendName = friend.toUpperCase();
+                    if(friend.toLowerCase() === "mrkekstv") displayFriendName += " ☑️";
+
+                    htmlBuffer += `<div class="friend-item"><span style="color:var(--neon-cyan)">● ${displayFriendName}</span><span style="color:#ffe600; font-size:14px;">🪙 ${fCoins}</span></div>`;
+                }
+                fList.innerHTML = htmlBuffer;
+            }
+        }
+
+        // --- MULTIPLAYER ARENA ENGINE ---
+        let peer, conn, gameInterval;
+        let canvas = document.getElementById('mpCanvas'), ctx = canvas.getContext('2d');
+        let localP = { x: 50, y: 150 }, remoteP = { x: 400, y: 150 };
+
+        function initMultiplayer() {
+            if(peer) return;
+            peer = new Peer('hub-room-' + Math.floor(1000 + Math.random()*9000));
+            peer.on('open', id => document.getElementById('my-code').innerText = id);
+            peer.on('connection', c => { conn = c; startLoop(); });
+        }
+        function connectToFriend() {
+            let code = document.getElementById('join-code').value.trim();
+            conn = peer.connect(code);
+            conn.on('open', () => startLoop());
+        }
+        function startLoop() {
+            document.getElementById('mp-menu').style.display = 'none';
+            window.addEventListener('keydown', e => {
+                if(e.key==='w'||e.key==='ArrowUp') localP.y-=7; if(e.key==='s'||e.key==='ArrowDown') localP.y+=7;
+                if(e.key==='a'||e.key==='ArrowLeft') localP.x-=7; if(e.key==='d'||e.key==='ArrowRight') localP.x+=7;
+                if(conn) conn.send({x: localP.x, y: localP.y});
+            });
+            if(conn) conn.on('data', d => { remoteP.x = d.x; remoteP.y = d.y; });
+            gameInterval = setInterval(() => {
+                ctx.clearRect(0,0,500,300);
+                ctx.fillStyle = playerData.color; ctx.fillRect(localP.x, localP.y, 20, 20);
+                ctx.fillStyle = '#ff007f'; ctx.fillRect(remoteP.x, remoteP.y, 20, 20);
+            }, 1000/30);
+        }
+    </script>
+</body>
+</html>
+
