@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeonOS - Multiplayer Game Hub</title>
+    <!-- PeerJS Bibliothek für kostenlosen Online-Multiplayer laden -->
+    <script src="https://unpkg.com"></script>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f0c20 0%, #15102a 50%, #06040a 100%);
+            --neon-cyan: #00f0ff;
+            --neon-pink: #ff007f;
+            --neon-purple: #9d00ff;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            background: var(--bg-gradient); color: #fff;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 0; min-height: 100vh;
+            overflow: hidden; display: flex; flex-direction: column;
+        }
+
+        /* Hintergrund-Glow */
+        .bg-glow {
+            position: absolute; width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(157, 0, 255, 0.15) 0%, rgba(0,0,0,0) 70%);
+            top: -200px; left: -200px; z-index: 0; pointer-events: none;
+        }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 40px; background: rgba(10, 8, 20, 0.5);
+            backdrop-filter: blur(10px); border-bottom: 1px solid var(--glass-border); z-index: 10;
+        }
+
+        .logo {
+            font-size: 24px; font-weight: 900; letter-spacing: 2px;
+            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-pink));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+
+        main {
+            flex: 1; padding: 40px; overflow-y: auto; z-index: 5;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 25px; max-width: 1400px; width: 100%; margin: 0 auto;
+        }
+
+        /* App Cards */
+        .app-card {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: 16px; padding: 20px; display: flex;
+            flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.4s ease; position: relative; overflow: hidden;
+        }
+
+        .app-card:hover {
+            transform: translateY(-8px); border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 240, 255, 0.2);
+        }
+
+        .app-icon { font-size: 50px; margin-bottom: 15px; transition: transform 0.3s; }
+        .app-card:hover .app-icon { transform: scale(1.15); }
+        .app-title { font-size: 18px; font-weight: 700; text-align: center; }
+
+        /* Multi-Window System */
+        .app-window {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+            width: 90%; max-width: 800px; height: 80vh;
+            background: rgba(13, 10, 25, 0.9); backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 24px;
+            z-index: 100; opacity: 0; pointer-events: none; transition: all 0.3s ease;
+            display: flex; flex-direction: column;
+        }
+
+        .app-window.active { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+        .window-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; border-bottom: 1px solid var(--glass-border); }
+        .close-btn { background: none; border: none; color: #ff4a4a; font-size: 20px; cursor: pointer; font-weight: bold; }
+        .window-content { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 99; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .overlay.active { opacity: 1; pointer-events: auto; }
+
+        /* UI Elemente */
+        input {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            color: #fff; padding: 10px; border-radius: 8px; margin: 5px; text-align: center;
+        }
+        .btn {
+            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-purple));
+            border: none; color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 5px;
+        }
+        .btn-pink { background: linear-gradient(45deg, var(--neon-pink), var(--neon-purple)); }
+
+        canvas { background: #000; border-radius: 12px; border: 2px solid var(--glass-border); box-shadow: 0 0 20px rgba(0,240,255,0.1); }
+    </style>
+</head>
+<body>
+
+    <div class="bg-glow"></div>
+
+    <header>
+        <div class="logo">NEON HUB</div>
+        <div>Status: <span id="net-status" style="color:red; font-weight:bold;">Offline</span></div>
+    </header>
+
+    <main>
+        <!-- Multiplayer Spiel Card -->
+        <div class="app-card" onclick="openApp('game-multiplayer')">
+            <div class="app-icon">🌐</div>
+            <div class="app-title">Online Arena (1v1)</div>
+        </div>
+    </main>
+
+    <div class="overlay" id="overlay" onclick="closeAllApps()"></div>
+
+    <!-- ONLINE MULTIPLAYER WINDOW -->
+    <div class="app-window" id="game-multiplayer">
+        <div class="window-header">
+            <div class="window-title">🌐 Online Arena - Münzen-Jagd</div>
+            <button class="close-btn" onclick="closeAllApps()">X</button>
+        </div>
+        <div class="window-content">
+            
+            <!-- Verbindungs-Menü -->
+            <div id="mp-menu" style="text-align: center; margin-bottom: 15px;">
+                <p>Dein Raum-Code: <b id="my-code" style="color:var(--neon-cyan); font-size:18px;">Lade...</b></p>
+                <input type="text" id="join-code" placeholder="Code vom Freund eingeben...">
+                <button class="btn btn-pink" onclick="connectToFriend()">Raum beitreten</button>
+                <div id="game-info" style="margin-top: 10px; color:#aaa;">Warte auf Verbindung...</div>
+            </div>
+
+            <!-- Spielfeld -->
+            <canvas id="mpCanvas" width="500" height="350"></canvas>
+            <p style="color:#aaa; font-size:12px; margin-top: 10px;">Steuerung: Nutze die Tasten <b>W, A, S, D</b> oder <b>Pfeiltasten</b> zum Bewegen.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- WINDOW MANAGER ---
+        function openApp(id) {
+            document.getElementById('overlay').classList.add('active');
+            document.getElementById(id).classList.add('active');
+            if(id === 'game-multiplayer') initMultiplayer();
+        }
+        function closeAllApps() {
+            document.getElementById('overlay').classList.remove('active');
+            document.querySelectorAll('.app-window').forEach(w => w.classList.remove('active'));
+        }
+
+        // --- ONLINE MULTIPLAYER LOGIK (PEERJS) ---
+        let peer;
+        let conn;
+        let mpCanvas = document.getElementById('mpCanvas');
+        let mCtx = mpCanvas.getContext('2d');
+        
+        // Spieler-Daten
+        let localPlayer = { x: 50, y: 150, score: 0, color: '#00f0ff' };
+        let remotePlayer = { x: 400, y: 150, score: 0, color: '#ff007f' };
+        let coin = { x: 250, y: 175, size: 8 };
+        let isHost = false;
+
+        function initMultiplayer() {
+            if (peer) return; // Bereits initialisiert
+
+            // Erstellt eine zufällige, kurze ID für den Raum-Code
+            const randomId = 'room-' + Math.floor(1000 + Math.random() * 9000);
+            peer = new Peer(randomId);
+
+            peer.on('open', (id) => {
+                document.getElementById('my-code').innerText = id;
+                document.getElementById('net-status').innerText = "Bereit";
+                document.getElementById('net-status').style.color = "var(--neon-cyan)";
+            });
+
+            // Wenn jemand deinem Raum beitritt (Du bist der Host)
+            peer.on('connection', (connection) => {
+                conn = connection;
+                isHost = true;
+                setupConnection();
+            });
+        }
+
+        // Mit dem Code des Freundes verbinden
+        function connectToFriend() {
+            const friendId = document.getElementById('join-code').value.trim();
+            if(!friendId) return alert("Bitte Code eingeben!");
+            
+            document.getElementById('game-info').innerText = "Verbinde...";
+            conn = peer.connect(friendId);
+            isHost = false;
+            setupConnection();
+        }
+
+        // Wenn die Datenleitung steht
+        function setupConnection() {
+            conn.on('open', () => {
+                document.getElementById('game-info').innerText = "Verbunden! Das Spiel läuft.";
+                document.getElementById('mp-menu').style.opacity = "0.5";
+                
+                // Spiel-Schleife starten
+                setInterval(gameLoop, 1000 / 60); 
+            });
+
+            // Daten vom anderen Spieler empfangen
+            conn.on('data', (data) => {
+                if (data.type === 'move') {
+                    remotePlayer.x = data.x;
+                    remotePlayer.y = data.y;
+                }
+                if (data.type === 'sync') {
+                    // Host synchronisiert Münzen und Punkte
+                    coin = data.coin;
+                    remotePlayer.score = data.hostScore;
+                    localPlayer.score = data.clientScore;
+                }
+            });
+        }
+
+        // Tastatur-Eingaben abfangen
+        let keys = {};
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        // Haupt-Spielschleife
+        function gameLoop() {
+            // Eigene Bewegung berechnen
+            let speed = 4;
+            if (keys['w'] || keys['arrowup']) localPlayer.y -= speed;
+            if (keys['s'] || keys['arrowdown']) localPlayer.y += speed;
+            if (keys['a'] || keys['arrowleft']) localPlayer.x -= speed;
+            if (keys['d'] || keys['arrowright']) localPlayer.x += speed;
+
+            // Spielfeldbegrenzung
+            localPlayer.x = Math.max(10, Math.min(mpCanvas.width - 20, localPlayer.x));
+            localPlayer.y = Math.max(10, Math.min(mpCanvas.height - 20, localPlayer.y));
+
+            // Position an den Partner senden
+            if (conn && conn.open) {
+                conn.send({ type: 'move', x: localPlayer.x, y: localPlayer.y });
+            }
+
+            // Kollision mit Münze (Nur der Host berechnet das, um Fehler zu vermeiden)
+            if (isHost) {
+                let distLocal = Math.hypot(localPlayer.x - coin.x, localPlayer.y - coin.y);
+                let distRemote = Math.hypot(remotePlayer.x - coin.x, remotePlayer.y - coin.y);
+
+                if (distLocal < 20) {
+                    localPlayer.score++;
+                    respawnCoin();
+                } else if (distRemote < 20) {
+                    remotePlayer.score++;
+                    respawnCoin();
+                }
+
+                // Synch-Daten an Client schicken
+                conn.send({ type: 'sync', coin: coin, hostScore: localPlayer.score, clientScore: remotePlayer.score });
+            }
+
+            // Zeichnen
+            mCtx.clearRect(0, 0, mpCanvas.width, mpCanvas.height);
+
+            // Münze zeichnen
+            mCtx.fillStyle = '#ffe600';
+            mCtx.beginPath(); mCtx.arc(coin.x, coin.y, coin.size, 0, Math.PI*2); mCtx.fill();
+
+            // Spieler 1 (Du)
+            mCtx.fillStyle = localPlayer.color;
+            mCtx.fillRect(localPlayer.x - 10, localPlayer.y - 10, 20, 20);
+
+            // Spieler 2 (Gegner)
+            mCtx.fillStyle = remotePlayer.color;
+            mCtx.fillRect(remotePlayer.x - 10, remotePlayer.y - 10, 20, 20);
+
+            // Scores im Feld anzeigen
+            mCtx.fillStyle = '#fff'; mCtx.font = '14px sans-serif';
+            mCtx.fillText(`Blau (Du): ${localPlayer.score}`, 20, 25);
+            mCtx.fillText(`Pink: ${remotePlayer.score}`, mpCanvas.width - 100, 25);
+        }
+
+        function respawnCoin() {
+            coin.x = Math.random() * (mpCanvas.width - 40) + 20;
+            coin.y = Math.random() * (mpCanvas.height - 40) + 20;
+        }
+    </script>
+</body>
+</html>
