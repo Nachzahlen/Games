@@ -1,0 +1,44 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #0f1220;
+  color: white;
+  text-align: center;
+}
+
+.container {
+  max-width: 700px;
+  margin: auto;
+  padding: 20px;
+}
+
+h1 {
+  color: #ffcc00;
+}
+
+.panel {
+  margin: 20px 0;
+}
+
+select {
+  padding: 10px;
+  font-size: 16px;
+}
+
+.results, .meta {
+  background: #1c2140;
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 10px;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  padding: 8px;
+  background: #2a315a;
+  margin: 5px;
+  border-radius: 5px;
+}
