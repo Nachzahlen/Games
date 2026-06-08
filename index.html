@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schnittstellen-Manager</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .panel {
+            background-color: #1e293b;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+        }
+        h2 {
+            color: #38bdf8;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+        }
+        .btn {
+            background-color: #0284c7;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+        .btn:hover {
+            background-color: #0369a1;
+        }
+        .output-zone {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .alert-box {
+            background-color: #334155;
+            border-left: 4px solid #38bdf8;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: left;
+            font-family: monospace;
+            font-size: 0.9rem;
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="panel">
+        <h2>Schnittstellen-Manager</h2>
+        <p>Klicken Sie auf den Button, um die 10 standardmäßigen Datenkanäle der Anwendung zu initialisieren.</p>
+        
+        <button class="btn" onclick="initialisiereKanaele()">Kanäle öffnen</button>
+        
+        <!-- Bereich für die generierten Fenster/Meldungen -->
+        <div id="display" class="output-zone"></div>
+    </div>
+
+    <script>
+        function initialisiereKanaele() {
+            const display = document.getElementById('display');
+            // Leert den Bereich vor jedem neuen Klick
+            display.innerHTML = '';
+            
+            // Die Schleife öffnet und generiert 10 Info-Boxen direkt auf der Seite
+            for (let i = 1; i <= 10; i++) {
+                const box = document.createElement('div');
+                box.className = 'alert-box';
+                box.innerText = '➔ Datenkanal #' + i + ' erfolgreich geöffnet.';
+                
+                display.appendChild(box);
+            }
+        }
+    </script>
+
+</body>
+</html>
