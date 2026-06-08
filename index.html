@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10er Wiederholungsschleife</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            background-color: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 100%;
+        }
+        h3 {
+            color: #38bdf8;
+            margin-top: 0;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 10px;
+        }
+        .item {
+            padding: 10px;
+            border-bottom: 1px solid #334155;
+            font-family: monospace;
+        }
+        .item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h3>System-Einträge</h3>
+        <!-- Der Container, in den die Schleife die Elemente einfügt -->
+        <div id="schleifen-ausgabe"></div>
+    </div>
+
+    <script>
+        const ausgabeBereich = document.getElementById('schleifen-ausgabe');
+        
+        // Die Schleife startet bei 1 und läuft, bis i den Wert 10 erreicht hat
+        for (let i = 1; i <= 10; i++) {
+            // 1. Erstelle ein neues div-Element im Speicher
+            const zeile = document.createElement('div');
+            zeile.className = 'item';
+            
+            // 2. Setze den Text mit der aktuellen Nummer des Durchlaufs
+            zeile.innerText = 'Eintrag [' + i + '] verarbeitet.';
+            
+            // 3. Füge das Element sichtbar in den Container ein
+            ausgabeBereich.appendChild(zeile);
+        }
+    </script>
+
+</body>
+</html>
