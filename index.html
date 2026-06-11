@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>McDonald's Kiosk & Shop</title>
+    <!-- Tailwind CSS für modernes UI-Styling -->
+    <script src="https://tailwindcss.com"></script>
+    <!-- FontAwesome für Warenkorb- & UI-Icons -->
+    <link rel="stylesheet" href="https://cloudflare.com">
+    <style>
+        /* Offizielle McDonald's Corporate Identity Farbpalette */
+        :root {
+            --mcd-gold: #FFBC0D;
+            --mcd-red: #DB0007;
+            --mcd-dark: #222222;
+        }
+        .bg-mcd-gold { background-color: var(--mcd-gold); }
+        .text-mcd-gold { color: var(--mcd-gold); }
+        .bg-mcd-red { background-color: var(--mcd-red); }
+        .border-mcd-gold { border-color: var(--mcd-gold); }
+        
+        /* Sanfter Kiosk-Zoom-Effekt beim Hovern */
+        .product-card {
+            transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease;
+        }
+        .product-card:hover {
+            transform: scale(1.03);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+        }
+        /* Badge-Puls-Effekt bei Klick auf Hinzufügen */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        .badge-pop { animation: pop 0.3s ease-in-out; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans min-h-screen flex flex-col antialiased">
+
+    <!-- NAVIGATIONSLEISTE (ORIGINAL DESIGN) -->
+    <nav class="bg-white shadow-md sticky top-0 z-40 border-b-4 border-mcd-gold">
+        <div class="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center">
+            <!-- Offizieller Look des McDonald's Logos -->
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="filterCategory('all')">
+                <div class="bg-mcd-red p-2.5 rounded-lg flex items-center justify-center shadow-md">
+                    <span class="text-4xl font-black text-mcd-gold tracking-tighter leading-none" style="font-family: 'Arial Black', sans-serif; -webkit-text-stroke: 1px #DB0007;">M</span>
+                </div>
+                <span class="font-extrabold text-xl tracking-tight text-gray-800">McDonald's <span class="text-xs bg-emerald-600 text-white px-2 py-0.5 rounded-full font-medium align-middle ml-1">Kiosk Live</span></span>
+            </div>
+            
+            <!-- Live Werbe-Ticker -->
+            <div class="hidden lg:block bg-yellow-100 text-yellow-900 text-xs font-bold px-4 py-2 rounded-full border border-yellow-200">
+                ✨ Aktuelles Sortiment 2026 inklusive FIFA Happy Meal® & EM-Gutscheinen!
+            </div>
+
+            <!-- Warenkorb Button mit Badge-Zähler -->
+            <button onclick="toggleCart()" class="relative bg-mcd-red hover:bg-red-700 text-white p-3.5 rounded-full transition shadow-lg flex items-center justify-center">
+                <i class="fa-solid fa-bag-shopping text-xl"></i>
+                <span id="cart-badge" class="absolute -top-1 -right-1 bg-mcd-gold text-mcd-dark font-black text-xs w-5 h-5 rounded-full flex items-center justify-center hidden shadow">0</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- KIOSK START-ABFRAGE (HIER ESSEN / MITNEHMEN) -->
+    <div id="order-type-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-8 text-center shadow-2xl border-4 border-mcd-gold max-w-sm sm:max-w-xl">
+            <span class="text-5xl font-black text-mcd-gold block mb-2" style="font-family: 'Arial Black';">M</span>
+            <h2 class="text-2xl sm:text-3xl font-black tracking-tight mb-2">HERZLICH WILLKOMMEN!</h2>
+            <p class="text-gray-500 mb-8 font-medium">Wo möchtest du deine Bestellung genießen?</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button onclick="setOrderType('Hier essen')" class="border-2 border-gray-200 hover:border-mcd-gold hover:bg-amber-50/40 p-6 rounded-2xl flex flex-col items-center justify-center transition group shadow-sm">
+                    <i class="fa-solid fa-utensils text-4xl text-mcd-red mb-3 group-hover:scale-110 transition-transform"></i>
+                    <span class="font-bold text-lg text-gray-800">Hier essen</span>
+                </button>
+                <button onclick="setOrderType('Mitnehmen')" class="border-2 border-gray-200 hover:border-mcd-gold hover:bg-amber-50/40 p-6 rounded-2xl flex flex-col items-center justify-center transition group shadow-sm">
+                    <i class="fa-solid fa-bag-shopping text-4xl text-mcd-gold mb-3 group-hover:scale-110 transition-transform"></i>
+                    <span class="font-bold text-lg text-gray-800">Zum Mitnehmen</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROMO HERO BANNER -->
+    <header class="bg-mcd-red text-white py-10 px-4 text-center shadow-inner relative overflow-hidden">
+        <div class="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_20%,transparent_20%)] bg-[size:24px_24px]"></div>
+        <h1 class="text-3xl md:text-5xl font-black mb-1 tracking-tight" style="font-family: 'Arial Black', sans-serif;">ICH LIEBE ES.</h1>
+        <p class="text-xs md:text-base text-yellow-300 font-bold uppercase tracking-wider">Bestell-Modus: <span id="current-mode-display" class="bg-white text-mcd-red px-2 py-0.5 rounded ml-1">Auswählen...</span></p>
+    </header>
+
+    <!-- HAUPTBEREICH & KATEGORIE-FILTER -->
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 py-8">
+        <!-- Scrollbare Kategorietasten -->
+        <div class="flex space-x-2 overflow-x-auto pb-4 mb-8 border-b border-gray-200 scrollbar-none">
+            <button onclick="filterCategory('all')" class="bg-mcd-dark text-white px-6 py-2.5 rounded-full font-bold text-sm whitespace-nowrap shadow-sm">Alle Produkte</button>
+            <button onclick="filterCategory('burger')" class="bg-white hover:bg-gray-50 text-gray-800 px-6 py-2.5 rounded-full font-bold text-sm whitespace-nowrap shadow-sm border">🍔 Burger</button>
+            <button onclick="filterCategory('snacks')" class="bg-white hover:bg-gray-50 text-gray-800 px-6 py-2.5 rounded-full font-bold text-sm whitespace-nowrap shadow-sm border">🍟 Pommes & Snacks</button>
+            <button onclick="filterCategory('kids')" class="bg-white hover:bg-gray-50 text-gray-800 px-6 py-2.5 rounded-full font-bold text-sm whitespace-nowrap shadow-sm border">🎁 Happy Meal</button>
+        </div>
+
+        <!-- Produkt-Raster Grid -->
+        <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+    </main>
+
+    <!-- SEITEN-WARENKORB (SIDEBAR) -->
+    <div id="cart-sidebar" class="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col border-l border-gray-200">
+        <!-- Sidebar Header -->
+        <div class="bg-mcd-dark text-white p-4 flex justify-between items-center border-b border-gray-800">
+            <h3 class="font-bold text-lg flex items-center"><i class="fa-solid fa-cart-shopping mr-2 text-mcd-gold"></i> Deine Bestellung</h3>
+            <button onclick="toggleCart()" class="text-gray-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Bestellte Artikel -->
+        <div id="cart-items" class="flex-grow overflow-y-auto p-4 space-y-4 bg-gray-50">
+            <p id="empty-cart-text" class="text-center text-gray-400 my-12 font-medium">Dein Tablett ist noch leer. 🍔</p>
+        </div>
+
+        <!-- Kassen-Bereich -->
+        <div class="p-4 border-t border-gray-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+            <div class="flex justify-between font-black text-xl mb-4 text-gray-900">
+                <span>Gesamtsumme:</span>
+                <span id="cart-total" class="text-mcd-red">0,00 €</span>
+            </div>
+            <button onclick="checkout()" class="w-full bg-mcd-gold hover:bg-yellow-500 text-mcd-dark font-extrabold py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2 tracking-wide text-base">
+                <span>Bestellung abschicken</span>
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- INTERAKTIVES BACKDROP OVERLAY -->
+    <div id="cart-overlay" onclick="toggleCart()" class="fixed inset-0 bg-black/40 z-40 hidden backdrop-blur-xs"></div>
+
+    <!-- EINBINDUNG DER LOGIK-DATEI -->
+    <script src="app.js"></script>
+</body>
+</html>
